@@ -1,6 +1,6 @@
 {
   "name": "ai-dual-testing",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "One-command AI testing skill for Vibe Code projects. Auto-detects your AI tool (Cursor, Antigravity, Claude Code, Windsurf) and injects dual-track verification.",
   "author": "KinderHealth",
   "license": "MIT",
@@ -31,7 +31,6 @@
     "playwright",
     "vibe-code"
   ],
-  "license": "MIT",
   "engines": {
     "node": ">=18"
   }
