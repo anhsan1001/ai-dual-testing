@@ -6,9 +6,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kinderhealth/ai-dual-testing"
+    "url": "https://github.com/anhsan1001/ai-dual-testing"
   },
-  "homepage": "https://github.com/kinderhealth/ai-dual-testing#readme",
+  "homepage": "https://github.com/anhsan1001/ai-dual-testing#readme",
   "bin": {
     "ai-dual-testing": "./bin/init.js"
   },
