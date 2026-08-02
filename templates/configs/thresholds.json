@@ -1,0 +1,16 @@
+{
+  "codeCoverage": {
+    "lines": 80,
+    "branches": 75,
+    "functions": 80,
+    "statements": 80
+  },
+  "requirementCoverage": {
+    "minimum": 95
+  },
+  "maxReviewRounds": 3,
+  "reporters": {
+    "codeFormat": "json",
+    "rtmFormat": "markdown"
+  }
+}

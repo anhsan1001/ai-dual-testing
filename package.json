@@ -1,0 +1,38 @@
+{
+  "name": "ai-dual-testing",
+  "version": "1.0.0",
+  "description": "One-command AI testing skill for Vibe Code projects. Auto-detects your AI tool (Cursor, Antigravity, Claude Code, Windsurf) and injects dual-track verification.",
+  "author": "KinderHealth",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kinderhealth/ai-dual-testing"
+  },
+  "homepage": "https://github.com/kinderhealth/ai-dual-testing#readme",
+  "bin": {
+    "ai-dual-testing": "./bin/init.js"
+  },
+  "files": [
+    "bin/",
+    "templates/",
+    "README.md"
+  ],
+  "keywords": [
+    "ai",
+    "testing",
+    "dual-track",
+    "vibe-coding",
+    "cursor",
+    "claude",
+    "windsurf",
+    "antigravity",
+    "qa",
+    "rtm",
+    "playwright",
+    "vibe-code"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
