@@ -180,7 +180,7 @@ function scaffold() {
     }
   }
 
-  // Copy configs
+  // Copy configs (preserve locked requirements.json)
   const configsDir = path.join(TEMPLATES, 'configs');
   if (fs.existsSync(configsDir)) {
     for (const file of fs.readdirSync(configsDir)) {
@@ -189,6 +189,20 @@ function scaffold() {
       if (!fs.existsSync(dest)) {
         fs.copyFileSync(src, dest);
         console.log(c.green(`   ✅ Created .ai-testing/configs/${file}`));
+      } else if (file === 'requirements.json') {
+        // Preserve locked requirements.json — never overwrite
+        try {
+          const existing = JSON.parse(fs.readFileSync(dest, 'utf-8'));
+          if (existing.locked) {
+            console.log(c.green(`   🔒 Preserved .ai-testing/configs/${file} (locked with ${(existing.requirements || []).length} requirements)`));
+          } else {
+            fs.copyFileSync(src, dest);
+            console.log(c.green(`   ✅ Updated .ai-testing/configs/${file} (was unlocked)`));
+          }
+        } catch {
+          fs.copyFileSync(src, dest);
+          console.log(c.green(`   ✅ Replaced .ai-testing/configs/${file} (invalid JSON)`));
+        }
       } else {
         console.log(c.dim(`   ⏭️  Skipped .ai-testing/configs/${file} (exists)`));
       }
@@ -313,13 +327,15 @@ function main() {
   console.log(`   Vitest:      ${project.hasVitest ? c.green('✅ installed') : c.yellow('❌ not found')}`);
   console.log(`   Playwright:  ${project.hasPlaywright ? c.green('✅ installed') : c.yellow('❌ not found')}`);
 
-  // 3. Check --skip-deps flag
+  // 3. Check flags
   const skipDeps = process.argv.includes('--skip-deps');
+  const forceReset = process.argv.includes('--reset');
 
   // 4. Check if already installed
-  if (fs.existsSync(path.join(AI_TESTING_DIR, 'scripts', 'verify.ts'))) {
+  if (fs.existsSync(path.join(AI_TESTING_DIR, 'scripts', 'verify.ts')) && !forceReset) {
     console.log('');
-    console.log(c.yellow('⚠️  .ai-testing/ already exists. Updating rules only...'));
+    console.log(c.yellow('⚠️  .ai-testing/ already exists. Updating rules & scripts...'));
+    scaffold(); // Re-copy scripts (preserves locked requirements.json)
     injectRules(tool);
     if (!skipDeps) {
       console.log('');
@@ -330,6 +346,13 @@ function main() {
     console.log(c.green('✅ Updated.'));
     console.log('');
     return;
+  }
+
+  // 4b. Force reset if --reset flag
+  if (forceReset && fs.existsSync(AI_TESTING_DIR)) {
+    console.log('');
+    console.log(c.yellow('🔄 Force reset: removing .ai-testing/...'));
+    fs.rmSync(AI_TESTING_DIR, { recursive: true, force: true });
   }
 
   // 5. Scaffold

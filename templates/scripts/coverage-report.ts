@@ -1,7 +1,7 @@
 /**
  * Dual Coverage Report — AI Dual-Track Testing
  *
- * Reads Vitest coverage + RTM data to produce unified coverage report.
+ * Reads Vitest coverage + RTM data + requirements.json baseline.
  * Usage: npx tsx .ai-testing/scripts/coverage-report.ts
  * Exit: 0 = PASS, 1 = FAIL
  */
@@ -11,6 +11,7 @@ import { resolve } from 'path';
 
 const ROOT = resolve(process.cwd(), '.ai-testing');
 const THRESHOLDS_PATH = resolve(ROOT, 'configs', 'thresholds.json');
+const REQUIREMENTS_PATH = resolve(ROOT, 'configs', 'requirements.json');
 const COVERAGE_PATH = resolve(process.cwd(), 'coverage', 'coverage-summary.json');
 const REPORTS_DIR = resolve(ROOT, 'reports');
 const OUTPUT_PATH = resolve(REPORTS_DIR, 'coverage-report.md');
@@ -25,6 +26,16 @@ function loadThresholds(): Thresholds {
     return { codeCoverage: { lines: 80, branches: 75, functions: 80, statements: 80 }, requirementCoverage: { minimum: 95 } };
   }
   return JSON.parse(readFileSync(THRESHOLDS_PATH, 'utf-8'));
+}
+
+function loadBaselineCount(): number {
+  if (!existsSync(REQUIREMENTS_PATH)) return 0;
+  try {
+    const data = JSON.parse(readFileSync(REQUIREMENTS_PATH, 'utf-8'));
+    return (data.requirements || []).length;
+  } catch {
+    return 0;
+  }
 }
 
 function parseCodeCoverage(t: Thresholds) {
@@ -48,8 +59,8 @@ function parseCodeCoverage(t: Thresholds) {
   };
 }
 
-function parseRTMCoverage(t: Thresholds) {
-  if (!existsSync(REPORTS_DIR)) return { total: 0, passed: 0, pct: 0, pass: false, available: false };
+function parseRTMCoverage(t: Thresholds, baselineCount: number) {
+  if (!existsSync(REPORTS_DIR)) return { total: 0, passed: 0, pct: 0, pass: false, available: false, baseline: baselineCount };
   const files = readdirSync(REPORTS_DIR).filter(f => f.endsWith('.rtm.json'));
   let total = 0, passed = 0;
   for (const file of files) {
@@ -58,17 +69,25 @@ function parseRTMCoverage(t: Thresholds) {
       for (const r of data.requirements || []) { total++; if (r.status === '✅') passed++; }
     } catch { /* skip */ }
   }
-  const pct = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
-  return { total, passed, pct, pass: pct >= t.requirementCoverage.minimum, available: total > 0 };
+  // Use baseline from requirements.json as denominator if available
+  const denominator = baselineCount > 0 ? baselineCount : total;
+  const pct = denominator > 0 ? Math.round((passed / denominator) * 1000) / 10 : 0;
+  return { total, passed, pct, pass: pct >= t.requirementCoverage.minimum, available: total > 0, baseline: baselineCount };
 }
 
 function main() {
   console.log('📊 Dual Coverage Report\n');
   const t = loadThresholds();
+  const baselineCount = loadBaselineCount();
   const code = parseCodeCoverage(t);
-  const rtm = parseRTMCoverage(t);
+  const rtm = parseRTMCoverage(t, baselineCount);
 
   const lines: string[] = ['# 📊 Dual Coverage Report', '', `> Generated: ${new Date().toISOString().slice(0, 19)}`, ''];
+
+  // Baseline info
+  if (baselineCount > 0) {
+    lines.push(`> Baseline: ${baselineCount} requirements from requirements.json`, '');
+  }
 
   // Code Coverage
   lines.push('## Code Coverage', '');
@@ -82,9 +101,15 @@ function main() {
   // RTM Coverage
   lines.push('', '## Requirement Coverage', '');
   if (rtm.available) {
-    lines.push(`- Total: ${rtm.total}`, `- Passed: ${rtm.passed}`, `- Coverage: **${rtm.pct}%** ${rtm.pass ? '✅' : '❌'}`);
+    lines.push(`- Baseline (requirements.json): ${rtm.baseline}`);
+    lines.push(`- Tested: ${rtm.total}`);
+    lines.push(`- Passed: ${rtm.passed}`);
+    lines.push(`- Coverage: **${rtm.pct}%** ${rtm.pass ? '✅' : '❌'}`);
+    if (rtm.total < rtm.baseline) {
+      lines.push(`- ⚠️ Warning: Only ${rtm.total}/${rtm.baseline} requirements found in RTM files`);
+    }
   } else {
-    lines.push('> ⚠️ No RTM data. Run verify first.');
+    lines.push('> ⚠️ No RTM data. AI must create .rtm.json files in STEP 4.');
   }
 
   if (!existsSync(REPORTS_DIR)) mkdirSync(REPORTS_DIR, { recursive: true });

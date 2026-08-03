@@ -1,5 +1,16 @@
 {
   "version": "1.0.0",
-  "description": "Baseline Master Requirements Specification for AI Dual-Track Testing",
-  "requirements": []
+  "locked": false,
+  "lockedAt": null,
+  "description": "Master Requirements — AI will populate on first verify, then lock for consistency",
+  "requirements": [],
+  "_schema": {
+    "_comment": "Each requirement must follow this format",
+    "id": "R01",
+    "description": "Mô tả requirement",
+    "acceptanceCriteria": "Điều kiện chấp nhận",
+    "priority": "HIGH | MEDIUM | LOW",
+    "type": "FUNCTIONAL | NON_FUNCTIONAL",
+    "source": "conversation | PRD | README"
+  }
 }

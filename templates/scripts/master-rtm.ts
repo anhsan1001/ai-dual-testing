@@ -1,7 +1,7 @@
 /**
  * Master RTM Aggregator — AI Dual-Track Testing
  *
- * Aggregates individual .rtm.json files from reports/ into a single Master RTM.
+ * Aggregates individual .rtm.json files and cross-validates against requirements.json.
  * Usage: npx tsx .ai-testing/scripts/master-rtm.ts
  */
 
@@ -24,15 +24,26 @@ interface FeatureRTM {
   requirements: Requirement[];
 }
 
-interface MasterData {
-  lastUpdated: string;
-  features: FeatureRTM[];
-}
-
-// ─── Paths (portable — uses cwd) ─────────────────────────
+// ─── Paths ───────────────────────────────────────────────
 const ROOT = resolve(process.cwd(), '.ai-testing');
 const REPORTS_DIR = resolve(ROOT, 'reports');
+const REQUIREMENTS_PATH = resolve(ROOT, 'configs', 'requirements.json');
 const MASTER_MD_PATH = resolve(REPORTS_DIR, 'master-rtm.md');
+
+// ─── Load baseline requirements ──────────────────────────
+function loadBaselineRequirements(): { ids: string[]; count: number } {
+  if (!existsSync(REQUIREMENTS_PATH)) {
+    console.warn('⚠️  requirements.json not found. Cannot cross-validate.');
+    return { ids: [], count: 0 };
+  }
+  try {
+    const data = JSON.parse(readFileSync(REQUIREMENTS_PATH, 'utf-8'));
+    const reqs = data.requirements || [];
+    return { ids: reqs.map((r: any) => r.id), count: reqs.length };
+  } catch {
+    return { ids: [], count: 0 };
+  }
+}
 
 // ─── Scan .rtm.json files ────────────────────────────────
 function scanRTMFiles(): FeatureRTM[] {
@@ -55,27 +66,52 @@ function scanRTMFiles(): FeatureRTM[] {
 }
 
 // ─── Generate Markdown ───────────────────────────────────
-function generateMarkdown(features: FeatureRTM[]): string {
+function generateMarkdown(features: FeatureRTM[], baseline: { ids: string[]; count: number }): string {
   const lines: string[] = ['# 📋 Master RTM', '', `> Updated: ${new Date().toISOString().slice(0, 19)}`, ''];
 
   let totalReqs = 0, totalPassed = 0, totalFailed = 0, totalPending = 0;
+  const allRtmIds = new Set<string>();
+
   for (const f of features) {
     for (const r of f.requirements) {
       totalReqs++;
+      allRtmIds.add(r.id);
       if (r.status === '✅') totalPassed++;
       else if (r.status === '❌') totalFailed++;
       else totalPending++;
     }
   }
 
-  const pct = totalReqs > 0 ? Math.round((totalPassed / totalReqs) * 1000) / 10 : 0;
+  // Use baseline count as denominator
+  const denominator = baseline.count > 0 ? baseline.count : totalReqs;
+  const pct = denominator > 0 ? Math.round((totalPassed / denominator) * 1000) / 10 : 0;
+
   lines.push('## Summary', '', '| Metric | Value |', '|--------|-------|');
   lines.push(`| Features | ${features.length} |`);
-  lines.push(`| Requirements | ${totalReqs} |`);
+  lines.push(`| Baseline Requirements | ${baseline.count} |`);
+  lines.push(`| Tested Requirements | ${totalReqs} |`);
   lines.push(`| ✅ Passed | ${totalPassed} |`);
   lines.push(`| ❌ Failed | ${totalFailed} |`);
   lines.push(`| ⚠️ Pending | ${totalPending} |`);
-  lines.push(`| **Coverage** | **${pct}%** ${pct >= 95 ? '✅' : '❌'} |`, '', '---');
+  lines.push(`| **Coverage** | **${pct}%** ${pct >= 95 ? '✅' : '❌'} |`, '');
+
+  // Cross-validation section
+  if (baseline.count > 0) {
+    const missingInRtm = baseline.ids.filter(id => !allRtmIds.has(id));
+    const orphanInRtm = [...allRtmIds].filter(id => !baseline.ids.includes(id));
+
+    if (missingInRtm.length > 0 || orphanInRtm.length > 0) {
+      lines.push('## ⚠️ Cross-Validation Issues', '');
+      if (missingInRtm.length > 0) {
+        lines.push(`**Missing from RTM** (in requirements.json but not tested): ${missingInRtm.join(', ')}`, '');
+      }
+      if (orphanInRtm.length > 0) {
+        lines.push(`**Orphan in RTM** (tested but not in requirements.json): ${orphanInRtm.join(', ')}`, '');
+      }
+    }
+  }
+
+  lines.push('---');
 
   for (const f of features) {
     const fp = f.requirements.filter(r => r.status === '✅').length;
@@ -94,24 +130,31 @@ function generateMarkdown(features: FeatureRTM[]): string {
 // ─── Main ────────────────────────────────────────────────
 function main() {
   console.log('📋 Master RTM Aggregator\n');
+
+  const baseline = loadBaselineRequirements();
+  if (baseline.count > 0) {
+    console.log(`📌 Baseline: ${baseline.count} requirements from requirements.json`);
+  }
+
   const features = scanRTMFiles();
 
   if (features.length === 0) {
     console.log('⚠️  No .rtm.json files found in .ai-testing/reports/');
-    console.log('   AI will create these when running verify.\n');
+    console.log('   AI must create these in STEP 4 before running verify.\n');
     return;
   }
 
   console.log(`📂 Found ${features.length} feature(s)`);
   if (!existsSync(REPORTS_DIR)) mkdirSync(REPORTS_DIR, { recursive: true });
-  writeFileSync(MASTER_MD_PATH, generateMarkdown(features), 'utf-8');
+  writeFileSync(MASTER_MD_PATH, generateMarkdown(features, baseline), 'utf-8');
   console.log(`📝 Written to: ${MASTER_MD_PATH}`);
 
   let total = 0, passed = 0;
   for (const f of features) for (const r of f.requirements) { total++; if (r.status === '✅') passed++; }
-  const pct = total > 0 ? Math.round((passed / total) * 1000) / 10 : 0;
+  const denominator = baseline.count > 0 ? baseline.count : total;
+  const pct = denominator > 0 ? Math.round((passed / denominator) * 1000) / 10 : 0;
 
-  console.log(`\n   Coverage: ${passed}/${total} = ${pct}%\n`);
+  console.log(`\n   Coverage: ${passed}/${denominator} = ${pct}%\n`);
 }
 
 main();
