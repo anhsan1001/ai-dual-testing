@@ -206,9 +206,10 @@ function scaffold() {
 function updateGitignore() {
   const gitignorePath = path.join(CWD, '.gitignore');
   const entries = [
-    '# AI Dual-Track Testing — reports (generated)',
-    '.ai-testing/reports/*',
-    '!.ai-testing/reports/.gitkeep',
+    '# AI Dual-Track Testing — ignore local artifacts & reports',
+    '.ai-testing/',
+    'test-results/',
+    'coverage/',
   ];
 
   const block = entries.join('\n');

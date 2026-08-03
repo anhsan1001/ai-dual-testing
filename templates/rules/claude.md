@@ -100,3 +100,4 @@ Output bảng RTM + Gap Report + Coverage %:
 5. KHÔNG được skip Non-Functional checklist
 6. KHÔNG tự fix code — chỉ report gaps cho user
 7. THỰC THI TRỰC TIẾP: Chạy liên tục cả 5 bước bằng tool calls, KHÔNG tạo plan file hay dừng chờ xác nhận ở các bước trung gian.
+8. KHÔNG TẠO FILE RÁC: Không tự ý tạo các file test phụ trong `src/__tests__/`. Mọi kết quả kiểm tra chỉ xuất ra file báo cáo RTM (`.ai-testing/reports/`) hoặc in trực tiếp ra Chat UI.
