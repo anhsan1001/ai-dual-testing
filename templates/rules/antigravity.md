@@ -56,8 +56,9 @@ Lưu vào `.ai-testing/reports/{feature-name}.rtm.json` theo format:
 | ✅ | ✅ | Full: unit test + E2E + screenshot |
 
 **Nếu có Playwright:**
-- PHẢI chụp screenshot từng bước quan trọng
-- Screenshots lưu vào `.ai-testing/reports/screenshots/`
+- **PHẢI viết file E2E spec**: Tạo/cập nhật file test `.ai-testing/e2e/{feature-name}.spec.ts` chứa các kịch bản test (Happy Path, UI, Responsive) dựa trên RTM ở Bước 2.
+- Chạy: `npx playwright test .ai-testing/e2e/{feature-name}.spec.ts`
+- PHẢI chụp screenshot từng bước quan trọng lưu vào `.ai-testing/reports/screenshots/`
 - Test responsive: mobile 375px, tablet 768px, desktop 1920px
 
 **Nếu không có test tool nào:**
@@ -103,4 +104,4 @@ Output bảng RTM + Gap Report + Coverage %:
 5. KHÔNG được skip Non-Functional checklist
 6. KHÔNG tự fix code — chỉ report gaps cho user
 7. THỰC THI TRỰC TIẾP: Chạy liên tục cả 5 bước bằng tool calls, KHÔNG tạo plan file hay dừng chờ xác nhận ở các bước trung gian.
-8. KHÔNG TẠO FILE RÁC: Không tự ý tạo các file test phụ trong `src/__tests__/`. Mọi kết quả kiểm tra chỉ xuất ra file báo cáo RTM (`.ai-testing/reports/`) hoặc in trực tiếp ra Chat UI.
+8. QUẢN LÝ FILE TEST CHUẨN: Không tự ý tạo các file test phụ trong thư mục mã nguồn chính (`src/`). Tất cả file test E2E cho Playwright PHẢI viết và lưu gọn trong `.ai-testing/e2e/{feature}.spec.ts` (đã được git-ignore toàn bộ).
