@@ -209,6 +209,7 @@ function updateGitignore() {
     '# AI Dual-Track Testing — ignore local artifacts & reports',
     '.ai-testing/',
     'test-results/',
+    'playwright-report/',
     'coverage/',
   ];
 

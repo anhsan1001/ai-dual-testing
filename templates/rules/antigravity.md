@@ -1,92 +1,61 @@
 ---
 name: ai-dual-testing
-description: Dual-track verification skill. Trigger with "verify" to test and report coverage for the current feature.
+description: Smart dual-track verification skill powered by multi-agent subtask delegation. Trigger with "verify" to test and report coverage.
 ---
 
-## AI Testing — Dual-Track Verification Skill
+## AI Testing — Multi-Agent Smart Verification Skill
+
+> [!CRITICAL] THỰC THI TỰ ĐỘNG BẰNG SUBAGENTS — KHÔNG HỎI XÁC NHẬN
+> KHÔNG xuất ra "Action Plan" hay hỏi "Bạn có muốn... không?".
+> Phân chia nhiệm vụ cho các Subagent chuyên trách để thực thi 100% công việc không bị quá tải context!
 
 ### Khi nào kích hoạt
 - Khi user nói "verify", "kiểm tra", "test lại", "check coverage"
 - Khi user nói "verify feature X" 
 
-### Quy trình verify (5 bước)
+### Mô hình Phân chia Subagent (Multi-Agent Subtask Delegation)
 
-#### Bước 1: Xác định scope
-- Đọc lại requirement/yêu cầu ban đầu từ conversation
-- Xác định tất cả files đã tạo/sửa trong feature này
-- List tất cả acceptance criteria từ requirement
+1. **Subagent 1: `code-mapper` (Phân tích Codebase & Scope)**
+   - **Nhiệm vụ**: Đọc Requirements + Đọc mã nguồn `src/`.
+   - **Output**: Bảng Code Mapping (Requirement -> File Path -> Code Status: ✅ / ❌ / ⚠️).
 
-#### Bước 2: Sinh RTM + Test Cases
-Với MỖI requirement từ conversation, tạo:
-- Acceptance Criteria dạng Given-When-Then
-- Test cases đủ 4 loại: Happy Path, Edge Case, Error Case, Boundary
-- Bảng RTM: Requirement → AC → Test Case → Status
+2. **Subagent 2: `test-runner` (Chạy Playwright / Vitest & Chụp ảnh)**
+   - **Nhiệm vụ**: Với các tính năng PASS ở Subagent 1:
+     - Tạo/cập nhật `.ai-testing/e2e/{feature}.spec.ts`.
+     - Chạy `npx playwright test .ai-testing/e2e/{feature}.spec.ts --config .ai-testing/configs/playwright.config.ts`.
+     - Chụp ảnh màn hình lưu vào `.ai-testing/reports/screenshots/`.
 
-Lưu vào `.ai-testing/reports/{feature-name}.rtm.json` theo format:
-```json
-{
-  "feature": "Feature Name",
-  "requirements": [
-    {
-      "id": "R01",
-      "description": "Mô tả requirement",
-      "acceptanceCriteria": "AC-01",
-      "testCases": "TC001,TC002",
-      "status": "✅",
-      "round": 1,
-      "notes": ""
-    }
-  ]
-}
-```
+3. **Subagent 3: `report-aggregator` (Tổng hợp Master RTM & Coverage)**
+   - **Nhiệm vụ**: Gọi `npx tsx .ai-testing/scripts/verify.ts` để sinh RTM JSON, `master-rtm.md`, và `coverage-report.md`.
 
-#### Bước 3: Detect tools & chạy test
+---
 
-**TRƯỚC KHI TEST, kiểm tra package.json xem có gì:**
-- Có `vitest` trong devDependencies? → Chạy unit test: `npx vitest run`
-- Có `@playwright/test` trong devDependencies? → Chạy E2E: `npx playwright test`
-- Không có cả hai? → Bỏ qua chạy test, CHỈ review code vs requirement
+### Quy trình Smart Verification (4 bước)
 
-**Adapt theo tool có sẵn:**
-| Có Vitest | Có Playwright | AI làm gì |
-|-----------|--------------|----------|
-| ❌ | ❌ | Review code → RTM + Gap Report (không chạy test) |
-| ✅ | ❌ | Chạy unit test, skip E2E |
-| ❌ | ✅ | Chạy E2E + screenshot, skip unit test |
-| ✅ | ✅ | Full: unit test + E2E + screenshot |
+#### Bước 1: Đọc Requirements & Khóa Baseline (`code-mapper`)
+- **Khóa danh sách Requirement cố định (Chống trôi kết quả giữa các lần chạy)**:
+  1. Kiểm tra file `.ai-testing/configs/requirements.json`. Nếu chưa có, AI đọc requirement ban đầu, lập danh sách cố định (`R01`, `R02`, `R03`...) và lưu vào `.ai-testing/configs/requirements.json`.
+  2. Ở mọi lần verify sau: **BẮT BUỘC ĐỌC DANH SÁCH TỪ `.ai-testing/configs/requirements.json`**. KHÔNG tự sinh lại ID ngẫu nhiên hay đổi số lượng requirement.
 
-**Nếu có Playwright:**
-- **PHẢI viết file E2E spec**: Tạo/cập nhật file test `.ai-testing/e2e/{feature-name}.spec.ts` chứa các kịch bản test (Happy Path, UI, Responsive) dựa trên RTM ở Bước 2.
-- Chạy: `npx playwright test .ai-testing/e2e/{feature-name}.spec.ts`
-- PHẢI chụp screenshot từng bước quan trọng lưu vào `.ai-testing/reports/screenshots/`
-- Test responsive: mobile 375px, tablet 768px, desktop 1920px
+#### Bước 2: Code Mapping (`code-mapper`)
+- Đọc source code và tìm vị trí xử lý cho từng Requirement:
+  - **Đã implement**: Code có xử lý đúng theo spec → Đánh dấu PASS Code Mapping (✅), chuyển sang Bước 3.
+  - **Thiếu logic / Chưa implement**: Code không tìm thấy hoặc xử lý sai → Đánh dấu ❌ THIẾU / ⚠️ CHƯA IMPLEMENT và tạo Gap Item ngay.
 
-**Nếu không có test tool nào:**
-- Review code thủ công: đọc từng file, so sánh với requirement
-- Đánh status mỗi requirement: ✅ đúng / ❌ sai hoặc thiếu / ⚠️ chưa implement
-- Vẫn tạo RTM và Gap Report như bình thường
+#### Bước 3: Dynamic Verification & Playwright/Vitest Run (`test-runner`)
+- **Vitest**: Chạy unit test (`npx vitest run`).
+- **Playwright E2E (Chỉ chạy cho Feature Code có UI)**:
+  - Tạo `.ai-testing/e2e/{feature-name}.spec.ts` bằng tool `write_to_file`.
+  - Chạy ngay `npx playwright test .ai-testing/e2e/{feature-name}.spec.ts --config .ai-testing/configs/playwright.config.ts`.
+  - Chụp ảnh màn hình bằng chứng UI (Mobile 375px, Tablet 768px, Desktop 1920px).
 
-#### Bước 4: Đánh giá & Gap Report
-So sánh code với RTM:
-- ✅ Implement đúng và đầy đủ
-- ❌ Implement sai hoặc thiếu logic  
-- ⚠️ Chưa implement
-
-Tạo Gap Report:
-| Gap-ID | Type | Requirement | Mô tả | Severity |
-|--------|------|------------|-------|----------|
-| G01 | Logic | R03 | Thiếu xử lý timeout | 🔴 High |
-| G02 | UI | R01 | Button quá nhỏ mobile | 🟡 Medium |
-
-Type: Logic | UI | Security | A11y | Performance
-
-Chạy: `npx tsx .ai-testing/scripts/coverage-report.ts`
-
-#### Bước 5: Báo cáo cho user
-Output bảng RTM + Gap Report + Coverage %:
-- Nếu PASS → "✅ Feature verified — Coverage X%"
-- Nếu FAIL → danh sách gaps + severity, hỏi user muốn fix gì
-- KHÔNG tự fix — user quyết định
+#### Bước 4: Master Reporting (`report-aggregator`)
+1. Chạy lệnh tổng hợp duy nhất: `npx tsx .ai-testing/scripts/verify.ts`.
+2. Trả ra cho User:
+   - **Bảng RTM (Requirement Traceability Matrix)**.
+   - **Bảng Gap Report (Phân cấp Severity 🔴 High, 🟡 Medium)**.
+   - **Tỷ lệ % Coverage** (Requirement Coverage + Code Coverage).
+   - **Lưu ý**: KHÔNG tự ý sửa code — báo cáo kết quả và chờ user quyết định.
 
 ### Non-Functional Checklist (bắt buộc kiểm tra)
 - [ ] Security: XSS, injection, auth bypass, sensitive data
@@ -97,11 +66,7 @@ Output bảng RTM + Gap Report + Coverage %:
 - [ ] Mobile: Responsive layout, touch targets ≥ 44px
 
 ### Quy tắc bắt buộc
-1. PHẢI đọc lại requirement GỐC từ conversation, không suy luận từ code
-2. PHẢI có test cases cho Edge Case + Error Case, không chỉ Happy Path
-3. PHẢI chụp screenshot nếu có UI VÀ có Playwright. Nếu không có Playwright → ghi note trong report
-4. PHẢI chạy `npx tsx .ai-testing/scripts/coverage-report.ts` để report
-5. KHÔNG được skip Non-Functional checklist
-6. KHÔNG tự fix code — chỉ report gaps cho user
-7. THỰC THI TRỰC TIẾP: Chạy liên tục cả 5 bước bằng tool calls, KHÔNG tạo plan file hay dừng chờ xác nhận ở các bước trung gian.
-8. QUẢN LÝ FILE TEST CHUẨN: Không tự ý tạo các file test phụ trong thư mục mã nguồn chính (`src/`). Tất cả file test E2E cho Playwright PHẢI viết và lưu gọn trong `.ai-testing/e2e/{feature}.spec.ts` (đã được git-ignore toàn bộ).
+1. PHẢI thực thi tự động 100% bằng subagent delegation hoặc tool calls liên tục.
+2. PHẢI chụp screenshot nếu có Playwright và có UI.
+3. PHẢI chạy `npx tsx .ai-testing/scripts/verify.ts` để tổng hợp báo cáo.
+4. QUẢN LÝ FILE TEST CHUẨN: Không tự ý tạo file test trong `src/`. Tất cả file test E2E cho Playwright PHẢI lưu trong `.ai-testing/e2e/{feature}.spec.ts` (đã git-ignore).
