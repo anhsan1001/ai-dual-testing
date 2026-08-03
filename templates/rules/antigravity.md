@@ -102,3 +102,4 @@ Output bảng RTM + Gap Report + Coverage %:
 4. PHẢI chạy `npx tsx .ai-testing/scripts/coverage-report.ts` để report
 5. KHÔNG được skip Non-Functional checklist
 6. KHÔNG tự fix code — chỉ report gaps cho user
+7. THỰC THI TRỰC TIẾP: Chạy liên tục cả 5 bước bằng tool calls, KHÔNG tạo plan file hay dừng chờ xác nhận ở các bước trung gian.

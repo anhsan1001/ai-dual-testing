@@ -207,9 +207,7 @@ function updateGitignore() {
   const gitignorePath = path.join(CWD, '.gitignore');
   const entries = [
     '# AI Dual-Track Testing — reports (generated)',
-    '.ai-testing/reports/*.md',
-    '.ai-testing/reports/*.json',
-    '.ai-testing/reports/screenshots/',
+    '.ai-testing/reports/*',
     '!.ai-testing/reports/.gitkeep',
   ];
 
